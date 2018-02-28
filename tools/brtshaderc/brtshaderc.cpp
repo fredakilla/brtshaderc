@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <bx/file.h>
 #include <vector>
+#include <bgfx/bgfx.h>
 
 // hack to fix the multiple definition link errors
 #define getUniformTypeName getUniformTypeName_shaderc
@@ -9,20 +10,12 @@
 
 namespace shaderc
 {
-    /// basic struct to hold memory block infos
-    struct MemoryBuffer
-    {
-        uint8_t* data;
-        uint32_t size;
-    };
-
     /// not a real FileWriter, but a hack to redirect write() to a memory block.
     class BufferWriter : public bx::FileWriter
     {
     public:
 
-        BufferWriter(MemoryBuffer* memBuffer) :
-            _memBuffer(memBuffer)
+        BufferWriter()
         {
         }
 
@@ -30,18 +23,18 @@ namespace shaderc
         {
         }
 
-        void finalize()
+        const bgfx::Memory* finalize()
         {
-            if(_memBuffer)
+            if(_buffer.size() > 0)
             {
-                bx::DefaultAllocator crtAllocator;
-                size_t size = _buffer.size() + 1;
-                _memBuffer->data = (uint8_t*)bx::alloc(&crtAllocator, size);
-                _memBuffer->size = size;
+                _buffer.push_back('\0');
 
-                bx::memCopy(_memBuffer->data, _buffer.data(), _buffer.size());
-                _memBuffer->data[_memBuffer->size - 1] = '\0';
+                const bgfx::Memory* mem = bgfx::alloc(_buffer.size());
+                bx::memCopy(mem->data, _buffer.data(), _buffer.size());
+                return mem;
             }
+
+            return nullptr;
         }
 
         int32_t write(const void* _data, int32_t _size, bx::Error* _err)
@@ -55,7 +48,6 @@ namespace shaderc
         BX_ALIGN_DECL(16, uint8_t) m_internal[64];
         typedef std::vector<uint8_t> Buffer;
         Buffer _buffer;
-        MemoryBuffer* _memBuffer;
     };
 }
 
@@ -221,16 +213,11 @@ namespace shaderc
 
         // compile shader.
 
-        MemoryBuffer mb;
-        BufferWriter writer(&mb);
+        BufferWriter writer;
         if ( bgfx::compileShader(attribdef.getData(), data, size, options, &writer) )
         {
-            // this will copy the compiled shader data to the MemoryBuffer
-            writer.finalize();
-
-            // make memory ref on MemoryBuffer
-            const bgfx::Memory* mem = bgfx::makeRef(mb.data, mb.size);
-            return mem;
+            // this will copy the compiled shader data to a memory block and return mem ptr
+            return writer.finalize();
         }
 
         return nullptr;
