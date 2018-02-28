@@ -1,56 +1,11 @@
 #include <cstdio>
 #include <bx/file.h>
 #include <vector>
-#include <bgfx/bgfx.h>
 
 // hack to fix the multiple definition link errors
 #define getUniformTypeName getUniformTypeName_shaderc
 #define nameToUniformTypeEnum nameToUniformTypeEnum_shaderc
 #define s_uniformTypeName s_uniformTypeName_shaderc
-
-namespace shaderc
-{
-    /// not a real FileWriter, but a hack to redirect write() to a memory block.
-    class BufferWriter : public bx::FileWriter
-    {
-    public:
-
-        BufferWriter()
-        {
-        }
-
-        ~BufferWriter()
-        {
-        }
-
-        const bgfx::Memory* finalize()
-        {
-            if(_buffer.size() > 0)
-            {
-                _buffer.push_back('\0');
-
-                const bgfx::Memory* mem = bgfx::alloc(_buffer.size());
-                bx::memCopy(mem->data, _buffer.data(), _buffer.size());
-                return mem;
-            }
-
-            return nullptr;
-        }
-
-        int32_t write(const void* _data, int32_t _size, bx::Error* _err)
-        {
-            const char* data = (const char*)_data;
-            _buffer.insert(_buffer.end(), data, data+_size);
-            return _size;
-        }
-
-    private:
-        BX_ALIGN_DECL(16, uint8_t) m_internal[64];
-        typedef std::vector<uint8_t> Buffer;
-        Buffer _buffer;
-    };
-}
-
 
 namespace bgfx
 {
@@ -113,8 +68,51 @@ namespace bgfx
 
 
 #include "brtshaderc.h"
+
 namespace shaderc
 {
+    /// not a real FileWriter, but a hack to redirect write() to a memory block.
+    class BufferWriter : public bx::FileWriter
+    {
+    public:
+
+        BufferWriter()
+        {
+        }
+
+        ~BufferWriter()
+        {
+        }
+
+        const bgfx::Memory* finalize()
+        {
+            if(_buffer.size() > 0)
+            {
+                _buffer.push_back('\0');
+
+                const bgfx::Memory* mem = bgfx::alloc(_buffer.size());
+                bx::memCopy(mem->data, _buffer.data(), _buffer.size());
+                return mem;
+            }
+
+            return nullptr;
+        }
+
+        int32_t write(const void* _data, int32_t _size, bx::Error* _err)
+        {
+            const char* data = (const char*)_data;
+            _buffer.insert(_buffer.end(), data, data+_size);
+            return _size;
+        }
+
+    private:
+        BX_ALIGN_DECL(16, uint8_t) m_internal[64];
+        typedef std::vector<uint8_t> Buffer;
+        Buffer _buffer;
+    };
+
+
+
     const bgfx::Memory* compileShader(ShaderType type, const char* filePath, const char* defines, const char* varyingPath)
     {
         bgfx::Options options;
@@ -223,6 +221,3 @@ namespace shaderc
         return nullptr;
     }
 }
-
-#undef fprintf
-#include "bx/allocator.h"
