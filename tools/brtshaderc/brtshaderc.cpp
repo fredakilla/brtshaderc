@@ -84,6 +84,11 @@ namespace shaderc
         {
         }
 
+        bool open(const bx::FilePath& _filePath, bool _append, bx::Error* _err) override
+        {
+            return true;
+        }
+
         const bgfx::Memory* finalize()
         {
             if(_buffer.size() > 0)
@@ -287,4 +292,266 @@ namespace shaderc
 
         return nullptr;
     }
+
+
+
+
+
+    void help(const char* _error = NULL)
+    {
+        if (NULL != _error)
+        {
+            fprintf(stderr, "brtshaderc error:\n%s\n\n", _error);
+        }
+    }
+
+    const char* baseName(const char* _filePath)
+    {
+        bx::FilePath fp(_filePath);
+        char tmp[bx::kMaxFilePath];
+        bx::strCopy(tmp, BX_COUNTOF(tmp), fp.getFileName() );
+        const char* base = bx::strFind(_filePath, tmp);
+        return base;
+    }
+
+    int compileShader(int _argc, const char* _argv[], bx::FileWriter* _writer)
+    {
+        bx::CommandLine cmdLine(_argc, _argv);
+
+        if (cmdLine.hasArg('v', "version") )
+        {
+            fprintf(stderr
+                , "shaderc, bgfx shader compiler tool, version %d.%d.%d.\n"
+                , BGFX_SHADERC_VERSION_MAJOR
+                , BGFX_SHADERC_VERSION_MINOR
+                , BGFX_API_VERSION
+                );
+            return bx::kExitSuccess;
+        }
+
+        if (cmdLine.hasArg('h', "help") )
+        {
+            help();
+            return bx::kExitFailure;
+        }
+
+        const char* filePath = cmdLine.findOption('f');
+        if (NULL == filePath)
+        {
+            help("Shader file name must be specified.");
+            return bx::kExitFailure;
+        }
+
+        const char* outFilePath = "";
+        //if (NULL == outFilePath)
+        //{
+        //    help("Output file name must be specified.");
+        //    return bx::kExitFailure;
+        //}
+
+        const char* type = cmdLine.findOption('\0', "type");
+        if (NULL == type)
+        {
+            help("Must specify shader type.");
+            return bx::kExitFailure;
+        }
+
+        bgfx::Options options;
+        options.inputFilePath = filePath;
+        options.outputFilePath = outFilePath;
+        options.shaderType = bx::toLower(type[0]);
+
+        options.disasm = cmdLine.hasArg('\0', "disasm");
+
+        const char* platform = cmdLine.findOption('\0', "platform");
+        if (NULL == platform)
+        {
+            platform = "";
+        }
+
+        options.platform = platform;
+
+        options.raw = cmdLine.hasArg('\0', "raw");
+
+        const char* profile = cmdLine.findOption('p', "profile");
+
+        if ( NULL != profile)
+        {
+            options.profile = profile;
+        }
+
+        {	// hlsl only
+            options.debugInformation = cmdLine.hasArg('\0', "debug");
+            options.avoidFlowControl = cmdLine.hasArg('\0', "avoid-flow-control");
+            options.noPreshader = cmdLine.hasArg('\0', "no-preshader");
+            options.partialPrecision = cmdLine.hasArg('\0', "partial-precision");
+            options.preferFlowControl = cmdLine.hasArg('\0', "prefer-flow-control");
+            options.backwardsCompatibility = cmdLine.hasArg('\0', "backwards-compatibility");
+            options.warningsAreErrors = cmdLine.hasArg('\0', "Werror");
+
+            uint32_t optimization = 3;
+            if (cmdLine.hasArg(optimization, 'O') )
+            {
+                options.optimize = true;
+                options.optimizationLevel = optimization;
+            }
+        }
+
+        //const char* bin2c = NULL;
+        //if (cmdLine.hasArg("bin2c") )
+        //{
+        //    bin2c = cmdLine.findOption("bin2c");
+        //    if (NULL == bin2c)
+        //    {
+        //        bin2c = baseName(outFilePath);
+        //        uint32_t len = (uint32_t)bx::strLen(bin2c);
+        //        char* temp = (char*)alloca(len+1);
+        //        for (char *out = temp; *bin2c != '\0';)
+        //        {
+        //            char ch = *bin2c++;
+        //            if (isalnum(ch) )
+        //            {
+        //                *out++ = ch;
+        //            }
+        //            else
+        //            {
+        //                *out++ = '_';
+        //            }
+        //        }
+        //        temp[len] = '\0';
+        //
+        //        bin2c = temp;
+        //    }
+        //}
+
+        options.depends = cmdLine.hasArg("depends");
+        options.preprocessOnly = cmdLine.hasArg("preprocess");
+        const char* includeDir = cmdLine.findOption('i');
+
+        BX_TRACE("depends: %d", options.depends);
+        BX_TRACE("preprocessOnly: %d", options.preprocessOnly);
+        BX_TRACE("includeDir: %s", includeDir);
+
+        for (int ii = 1; NULL != includeDir; ++ii)
+        {
+            options.includeDirs.push_back(includeDir);
+            includeDir = cmdLine.findOption(ii, 'i');
+        }
+
+        std::string dir;
+        {
+            const char* base = baseName(filePath);
+
+            if (base != filePath)
+            {
+                dir.assign(filePath, base-filePath);
+                options.includeDirs.push_back(dir.c_str());
+            }
+        }
+
+        const char* defines = cmdLine.findOption("define");
+        while (NULL != defines
+        &&    '\0'  != *defines)
+        {
+            defines = bx::strws(defines);
+            const char* eol = bx::strFind(defines, ';');
+            if (NULL == eol)
+            {
+                eol = defines + bx::strLen(defines);
+            }
+            std::string define(defines, eol);
+            options.defines.push_back(define.c_str() );
+            defines = ';' == *eol ? eol+1 : eol;
+        }
+
+        bool compiled = false;
+
+        bx::FileReader reader;
+        if (!bx::open(&reader, filePath) )
+        {
+            fprintf(stderr, "Unable to open file '%s'.\n", filePath);
+        }
+        else
+        {
+            std::string defaultVarying = dir + "varying.def.sc";
+            const char* varyingdef = cmdLine.findOption("varyingdef", defaultVarying.c_str() );
+            bgfx::File attribdef(varyingdef);
+            const char* parse = attribdef.getData();
+            if (NULL != parse
+            &&  *parse != '\0')
+            {
+                options.dependencies.push_back(varyingdef);
+            }
+            else
+            {
+                fprintf(stderr, "ERROR: Failed to parse varying def file: \"%s\" No input/output semantics will be generated in the code!\n", varyingdef);
+            }
+
+            const size_t padding = 4096;
+            uint32_t size = (uint32_t)bx::getSize(&reader);
+            char* data = new char[size+padding+1];
+            size = (uint32_t)bx::read(&reader, data, size);
+
+            if (data[0] == '\xef'
+            &&  data[1] == '\xbb'
+            &&  data[2] == '\xbf')
+            {
+                bx::memMove(data, &data[3], size-3);
+                size -= 3;
+            }
+
+            // Compiler generates "error X3000: syntax error: unexpected end of file"
+            // if input doesn't have empty line at EOF.
+            data[size] = '\n';
+            bx::memSet(&data[size+1], 0, padding);
+            bx::close(&reader);
+
+            bx::FileWriter* writer = _writer;
+
+            //if (NULL != bin2c)
+            //{
+            //    writer = new Bin2cWriter(bin2c);
+            //}
+            //else
+            //{
+            //    writer = new bx::FileWriter;
+            //}
+
+            if (!bx::open(writer, outFilePath) )
+            {
+                fprintf(stderr, "Unable to open output file '%s'.", outFilePath);
+                return bx::kExitFailure;
+            }
+
+            if ( compileShader(attribdef.getData(), data, size, options, writer) )
+                compiled = true;
+
+            bx::close(writer);
+            //delete writer;
+        }
+
+        if (compiled)
+        {
+            return bx::kExitSuccess;
+        }
+
+        remove(outFilePath);
+
+        fprintf(stderr, "Failed to build shader.\n");
+        return bx::kExitFailure;
+    }
+
+    const bgfx::Memory* compileShader(int argc, const char* argv[])
+    {
+        BufferWriter writer;
+        int error = compileShader(argc, argv, &writer);
+
+        if(!error)
+        {
+            return writer.finalize();
+        }
+
+        return nullptr;
+    }
+
 }
