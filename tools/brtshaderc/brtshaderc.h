@@ -14,6 +14,7 @@ namespace shaderc
      * @param filePath : Shader source file path.
      * @param defines : List of defines semicolon separated ex: "foo=1;bar;baz=1".
      * @param varyingPath : File path for varying.def.sc, or assume default name is "varying.def.sc" in current dir.
+     * @param profile : shader profile ("ps_4_0", "vs_4_0", ...). If null, library try to set default profile for current context.
      * @return
      */
     const bgfx::Memory* compileShader(
@@ -21,5 +22,6 @@ namespace shaderc
           , const char* filePath
           , const char* defines = nullptr
           , const char* varyingPath = nullptr
+          , const char* profile = nullptr
           );
 }

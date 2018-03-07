@@ -113,9 +113,11 @@ namespace shaderc
 
 
 
-    const bgfx::Memory* compileShader(ShaderType type, const char* filePath, const char* defines, const char* varyingPath)
+    const bgfx::Memory* compileShader(ShaderType type, const char* filePath, const char* defines, const char* varyingPath, const char* profile)
     {
         bgfx::Options options;
+        bx::memSet(&options, 0, sizeof(bgfx::Options));
+
         options.inputFilePath = filePath;
         options.shaderType = type;
 
@@ -133,6 +135,71 @@ namespace shaderc
 #elif BX_PLATFORM_OSX
         options.platform = "osx";
 #endif
+
+        // set profile
+        if(profile)
+        {
+            // user profile
+            options.profile = profile;
+        }
+        else
+        {
+            // set default profile for current running renderer.
+
+            bgfx::RendererType::Enum renderType = bgfx::getRendererType();
+
+            switch(renderType)
+            {
+            case bgfx::RendererType::Noop:         //!< No rendering.
+                break;
+            case bgfx::RendererType::Direct3D9:    //!< Direct3D 9.0
+            {
+                if(type == 'v')
+                    options.profile = "vs_3_0";
+                else if(type == 'f')
+                    options.profile = "ps_3_0";
+                else if(type == 'c')
+                    options.profile = "ps_3_0";
+            }
+            break;
+            case bgfx::RendererType::Direct3D11:   //!< Direct3D 11.0
+            {
+                if(type == 'v')
+                    options.profile = "vs_4_0";
+                else if(type == 'f')
+                    options.profile = "ps_4_0";
+                else if(type == 'c')
+                    options.profile = "cs_5_0";
+            }
+            break;
+            case bgfx::RendererType::Direct3D12:   //!< Direct3D 12.0
+            {
+                if(type == 'v')
+                    options.profile = "vs_5_0";
+                else if(type == 'f')
+                    options.profile = "ps_5_0";
+                else if(type == 'c')
+                    options.profile = "cs_5_0";
+            }
+            case bgfx::RendererType::Gnm:          //!< GNM
+                break;
+            case bgfx::RendererType::Metal:        //!< Metal
+                break;
+            case bgfx::RendererType::OpenGLES:     //!< OpenGL ES 2.0+
+                break;
+            case bgfx::RendererType::OpenGL:       //!< OpenGL 2.1+
+            {
+                if(type == 'v' || type == 'f')
+                    options.profile = "120";
+                else if(type == 'c')
+                    options.profile = "430";
+            }
+            break;
+            case bgfx::RendererType::Vulkan:       //!< Vulkan
+                break;
+            };
+        }
+
 
         // include current dir
         std::string dir;
