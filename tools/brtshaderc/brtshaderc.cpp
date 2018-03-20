@@ -59,9 +59,15 @@ namespace bgfx
     {
         return false;
     }
+
     bool compileSPIRVShader(const Options&, uint32_t, const std::string&, bx::WriterI*)
     {
         return false;
+    }
+
+    const char* getPsslPreamble()
+    {
+        return "";
     }
 }
 
@@ -155,6 +161,7 @@ namespace shaderc
 
             switch(renderType)
             {
+            default:
             case bgfx::RendererType::Noop:         //!< No rendering.
                 break;
             case bgfx::RendererType::Direct3D9:    //!< Direct3D 9.0
@@ -281,10 +288,12 @@ namespace shaderc
         bx::close(&reader);
 
 
+        std::string commandLineComment = "// shaderc command line:\n";
+
         // compile shader.
 
         BufferWriter writer;
-        if ( bgfx::compileShader(attribdef.getData(), data, size, options, &writer) )
+        if ( bgfx::compileShader(attribdef.getData(), commandLineComment.c_str(), data, size, options, &writer) )
         {
             // this will copy the compiled shader data to a memory block and return mem ptr
             return writer.finalize();
@@ -523,7 +532,9 @@ namespace shaderc
                 return bx::kExitFailure;
             }
 
-            if ( compileShader(attribdef.getData(), data, size, options, writer) )
+            std::string commandLineComment = "// shaderc command line:\n";
+
+            if ( compileShader(attribdef.getData(), commandLineComment.c_str(), data, size, options, writer) )
                 compiled = true;
 
             bx::close(writer);
