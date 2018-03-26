@@ -127,7 +127,6 @@ namespace shaderc
     const bgfx::Memory* compileShader(ShaderType type, const char* filePath, const char* defines, const char* varyingPath, const char* profile)
     {
         bgfx::Options options;
-        bx::memSet(&options, 0, sizeof(bgfx::Options));
 
         options.inputFilePath = filePath;
         options.shaderType = type;
