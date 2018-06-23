@@ -487,3 +487,5 @@ end
 
 -- build brtshaderc (shaderc in static library version)
 dofile "brtshaderc.lua"
+dofile "brtshaderc-example.lua"
+
