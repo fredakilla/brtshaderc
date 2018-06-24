@@ -12,5 +12,8 @@ or _OPTIONS["with-combined-examples"] then
 		"brtshaderc"
     }
     
+	files {
+		path.join(BGFX_DIR, "examples/01-cubes-brtshaderc/cubes.cpp")
+	}
 end
 

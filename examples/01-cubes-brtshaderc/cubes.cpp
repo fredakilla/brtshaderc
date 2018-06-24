@@ -192,32 +192,24 @@ public:
 		//m_program = loadProgram("vs_cubes", "fs_cubes");
 
 
-		//-----------------------------------------------------
-		// compile shader with brtshaderc
-		//-----------------------------------------------------
+        //-----------------------------------------------------
+        // compile shader with brtshaderc
+        //-----------------------------------------------------
 
-		#define vs_src "../01-cubes-brtshaderc/vs_cubes.sc"
-		#define fs_src "../01-cubes-brtshaderc/fs_cubes.sc"
-		#define def_src "../01-cubes-brtshaderc/varying.def.sc"
+        #define vs_src "../01-cubes-brtshaderc/vs_cubes.sc"
+        #define fs_src "../01-cubes-brtshaderc/fs_cubes.sc"
+        #define def_src "../01-cubes-brtshaderc/varying.def.sc"
 
-		#ifdef __linux__
-            #define vs_profile ""
-            #define ps_profile ""
-		#elif _WIN32
-			#define vs_profile "vs_4_0"
-            #define ps_profile "ps_4_0"
-		#endif
+        // compile vertex shader
+        const bgfx::Memory* memVsh = shaderc::compileShader(shaderc::ST_VERTEX, vs_src, "", def_src);
+        bgfx::ShaderHandle vsh = bgfx::createShader(memVsh);
 
-		// compile vertex shader, with default arguments.
-		const bgfx::Memory* memVsh =  shaderc::compileShader(shaderc::ST_VERTEX, vs_src, "", def_src, vs_profile);
-		bgfx::ShaderHandle vsh = bgfx::createShader(memVsh);
+        // compile fragment shader
+        const bgfx::Memory* memFsh = shaderc::compileShader(shaderc::ST_FRAGMENT, fs_src, "", def_src);
+        bgfx::ShaderHandle fsh = bgfx::createShader(memFsh);
 
-		// compile fragment shader, with specific arguments for defines, varying def file, shader profile.
-		const bgfx::Memory* memFsh =  shaderc::compileShader(shaderc::ST_FRAGMENT, fs_src, "", def_src, ps_profile);
-		bgfx::ShaderHandle fsh = bgfx::createShader(memFsh);
-
-		// build program using shaders
-		m_program = bgfx::createProgram(vsh, fsh, true);
+        // build program using shaders
+        m_program = bgfx::createProgram(vsh, fsh, true);
 
 
 
