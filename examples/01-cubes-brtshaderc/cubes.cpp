@@ -92,6 +92,13 @@ static const uint16_t s_cubeLineList[] =
 	6, 7,
 };
 
+static const uint16_t s_cubeLineStrip[] =
+{
+	0, 2, 3, 1, 5, 7, 6, 4,
+	0, 2, 6, 4, 5, 7, 3, 1,
+	0,
+};
+
 static const uint16_t s_cubePoints[] =
 {
 	0, 1, 2, 3, 4, 5, 6, 7
@@ -102,16 +109,19 @@ static const char* s_ptNames[]
 	"Triangle List",
 	"Triangle Strip",
 	"Lines",
+	"Line Strip",
 	"Points",
 };
 
 static const uint64_t s_ptState[]
 {
-	BGFX_STATE_PT_TRISTRIP,
 	UINT64_C(0),
+	BGFX_STATE_PT_TRISTRIP,
 	BGFX_STATE_PT_LINES,
+	BGFX_STATE_PT_LINESTRIP,
 	BGFX_STATE_PT_POINTS,
 };
+BX_STATIC_ASSERT(BX_COUNTOF(s_ptState) == BX_COUNTOF(s_ptNames) );
 
 class ExampleCubes : public entry::AppI
 {
@@ -164,26 +174,32 @@ public:
 			, PosColorVertex::ms_decl
 			);
 
-		// Create static index buffer for triangle strip rendering.
-		m_ibh[0] = bgfx::createIndexBuffer(
-			// Static data can be passed with bgfx::makeRef
-			bgfx::makeRef(s_cubeTriStrip, sizeof(s_cubeTriStrip) )
-			);
-
 		// Create static index buffer for triangle list rendering.
-		m_ibh[1] = bgfx::createIndexBuffer(
+		m_ibh[0] = bgfx::createIndexBuffer(
 			// Static data can be passed with bgfx::makeRef
 			bgfx::makeRef(s_cubeTriList, sizeof(s_cubeTriList) )
 			);
 
-		// Create static index buffer for triangle list rendering.
+		// Create static index buffer for triangle strip rendering.
+		m_ibh[1] = bgfx::createIndexBuffer(
+			// Static data can be passed with bgfx::makeRef
+			bgfx::makeRef(s_cubeTriStrip, sizeof(s_cubeTriStrip) )
+			);
+
+		// Create static index buffer for line list rendering.
 		m_ibh[2] = bgfx::createIndexBuffer(
 			// Static data can be passed with bgfx::makeRef
 			bgfx::makeRef(s_cubeLineList, sizeof(s_cubeLineList) )
 			);
 
-		// Create static index buffer for triangle list rendering.
+		// Create static index buffer for line strip rendering.
 		m_ibh[3] = bgfx::createIndexBuffer(
+			// Static data can be passed with bgfx::makeRef
+			bgfx::makeRef(s_cubeLineStrip, sizeof(s_cubeLineStrip) )
+			);
+
+		// Create static index buffer for point list rendering.
+		m_ibh[4] = bgfx::createIndexBuffer(
 			// Static data can be passed with bgfx::makeRef
 			bgfx::makeRef(s_cubePoints, sizeof(s_cubePoints) )
 			);
@@ -191,8 +207,7 @@ public:
 		// Create program from shaders.
 		//m_program = loadProgram("vs_cubes", "fs_cubes");
 
-
-        //-----------------------------------------------------
+		//-----------------------------------------------------
         // compile shader with brtshaderc
         //-----------------------------------------------------
 
@@ -210,6 +225,8 @@ public:
 
         // build program using shaders
         m_program = bgfx::createProgram(vsh, fsh, true);
+
+
 
 
 
@@ -285,20 +302,6 @@ public:
 			float eye[3] = { 0.0f, 0.0f, -35.0f };
 
 			// Set view and projection matrix for view 0.
-			const bgfx::HMD* hmd = bgfx::getHMD();
-			if (NULL != hmd && 0 != (hmd->flags & BGFX_HMD_RENDERING) )
-			{
-				float view[16];
-				bx::mtxQuatTranslationHMD(view, hmd->eye[0].rotation, eye);
-				bgfx::setViewTransform(0, view, hmd->eye[0].projection, BGFX_VIEW_STEREO, hmd->eye[1].projection);
-
-				// Set view 0 default viewport.
-				//
-				// Use HMD's width/height since HMD's internal frame buffer size
-				// might be much larger than window size.
-				bgfx::setViewRect(0, 0, 0, hmd->width, hmd->height);
-			}
-			else
 			{
 				float view[16];
 				bx::mtxLookAt(view, eye, at);
@@ -371,7 +374,7 @@ public:
 	uint32_t m_debug;
 	uint32_t m_reset;
 	bgfx::VertexBufferHandle m_vbh;
-	bgfx::IndexBufferHandle m_ibh[4];
+	bgfx::IndexBufferHandle m_ibh[BX_COUNTOF(s_ptState)];
 	bgfx::ProgramHandle m_program;
 	int64_t m_timeOffset;
 	int32_t m_pt;
