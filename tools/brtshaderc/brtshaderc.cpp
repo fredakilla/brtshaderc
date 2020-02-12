@@ -238,7 +238,8 @@ namespace shaderc
         // set varyingdef
         std::string defaultVarying = dir + "varying.def.sc";
         const char* varyingdef = varyingPath ? varyingPath : defaultVarying.c_str();
-        bgfx::File attribdef(varyingdef);
+        bgfx::File attribdef;
+        attribdef.load(varyingdef);
         const char* parse = attribdef.getData();
         if (NULL != parse
         &&  *parse != '\0')
@@ -480,7 +481,8 @@ namespace shaderc
         {
             std::string defaultVarying = dir + "varying.def.sc";
             const char* varyingdef = cmdLine.findOption("varyingdef", defaultVarying.c_str() );
-            File attribdef(varyingdef);
+            File attribdef;
+            attribdef.load(varyingdef);
             const char* parse = attribdef.getData();
             if (NULL != parse
             &&  *parse != '\0')
